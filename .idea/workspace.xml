@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="876274f3-30d9-4624-ab8c-819b1c10db83" name="Default Changelist" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="GOROOT" path="/usr/local/Cellar/go/1.13.6/libexec" />
+  <component name="ProjectId" id="1WWpAvHQenqxGn4AoTX4qrr61rY" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="go.import.settings.migrated" value="true" />
+    <property name="go.tried.to.enable.integration.dep.integrator" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ServiceViewManager">
+    <option name="viewStates">
+      <list>
+        <serviceView>
+          <treeState>
+            <expand />
+            <select />
+          </treeState>
+        </serviceView>
+      </list>
+    </option>
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="1805" y="-71" key="#GOROOT" timestamp="1579275180753">
+      <screen x="1680" y="-576" width="1050" height="1680" />
+    </state>
+    <state x="1805" y="-71" key="#GOROOT/1680.-576.1050.1680/0.0.1680.1050/-240.-1200.1920.1200@1680.-576.1050.1680" timestamp="1579275180753" />
+    <state x="1870" y="-185" width="670" height="676" key="search.everywhere.popup" timestamp="1579275883574">
+      <screen x="1680" y="-576" width="1050" height="1680" />
+    </state>
+    <state x="1870" y="-185" width="670" height="676" key="search.everywhere.popup/1680.-576.1050.1680/0.0.1680.1050/-240.-1200.1920.1200@1680.-576.1050.1680" timestamp="1579275883574" />
+  </component>
+</project>
