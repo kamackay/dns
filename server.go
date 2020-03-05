@@ -63,7 +63,7 @@ func main() {
 	logger := logging.GetLogger()
 	logger.Infof("Starting...")
 	port := 53
-	srv := &dns.Server{Addr: ":" + strconv.Itoa(port), Net: "tcp"}
+	srv := &dns.Server{Addr: ":" + strconv.Itoa(port), Net: "udp"}
 	srv.Handler = &handler{
 		resolver: dns_resolver.New([]string{"1.1.1.1"}),
 		domains: map[string]string{
