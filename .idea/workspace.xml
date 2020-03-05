@@ -2,8 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="876274f3-30d9-4624-ab8c-819b1c10db83" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Gopkg.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Gopkg.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -11,7 +12,7 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="GOROOT" path="/usr/local/Cellar/go/1.13.6/libexec" />
+  <component name="GOROOT" path="/usr/local/Cellar/go/1.14/libexec" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
@@ -46,13 +47,15 @@
     <option name="version" value="1" />
   </component>
   <component name="WindowStateProjectService">
-    <state x="1805" y="-71" key="#GOROOT" timestamp="1579275180753">
-      <screen x="1680" y="-576" width="1050" height="1680" />
+    <state x="200" y="316" key="#GOROOT" timestamp="1583421375334">
+      <screen x="0" y="0" width="1680" height="1050" />
     </state>
+    <state x="200" y="316" key="#GOROOT/-240.-1080.1920.1080/0.0.1680.1050/1680.-1080.1440.2560@0.0.1680.1050" timestamp="1583421375334" />
     <state x="1805" y="-71" key="#GOROOT/1680.-576.1050.1680/0.0.1680.1050/-240.-1200.1920.1200@1680.-576.1050.1680" timestamp="1579275180753" />
-    <state x="1870" y="-185" width="670" height="676" key="search.everywhere.popup" timestamp="1579275883574">
-      <screen x="1680" y="-576" width="1050" height="1680" />
+    <state x="304" y="244" width="1072" height="423" key="search.everywhere.popup" timestamp="1583422598847">
+      <screen x="0" y="0" width="1680" height="1050" />
     </state>
+    <state x="304" y="244" width="1072" height="423" key="search.everywhere.popup/-240.-1080.1920.1080/0.0.1680.1050/1680.-1080.1440.2560@0.0.1680.1050" timestamp="1583422598847" />
     <state x="1870" y="-185" width="670" height="676" key="search.everywhere.popup/1680.-576.1050.1680/0.0.1680.1050/-240.-1200.1920.1200@1680.-576.1050.1680" timestamp="1579275883574" />
   </component>
 </project>

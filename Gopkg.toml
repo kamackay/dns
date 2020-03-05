@@ -4,6 +4,7 @@
 # for detailed Gopkg.toml documentation.
 #
 required = [
+    "github.com/bogdanovich/dns_resolver",
     "github.com/julienschmidt/httprouter",
     "go.mongodb.org/mongo-driver/mongo",
     "github.com/Solorad/gin-brotli",
