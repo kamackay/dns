@@ -5,11 +5,11 @@ metadata:
   name: dns-service
   namespace: dns
 spec:
-  clusterIP: None
+  type: LoadBalancer
   ports:
     - name: dns
       port: 53
-      protocol: UDP
+      protocol: TCP
       targetPort: 53
   selector:
     app: dns-service
@@ -37,5 +37,6 @@ spec:
           imagePullPolicy: Always
           ports:
             - name: dns
+              protocol: TCP
               containerPort: 53
 ---
