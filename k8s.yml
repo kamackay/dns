@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dns
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-service
+  namespace: dns
+spec:
+  type: NodePort
+  ports:
+    - name: dns
+      port: 53
+      protocol: UDP
+      targetPort: 53
+  selector:
+    app: dns-service
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dns-deploy
+  namespace: dns
+  labels:
+    app: dns-service
+spec:
+  selector:
+    matchLabels:
+      app: dns-service
+  template:
+    metadata:
+      labels:
+        app: dns-service
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: server
+          image: kamackay/dns:latest
+          imagePullPolicy: Always
+          ports:
+            - name: dns
+              containerPort: 53
+---
+apiVersion: getambassador.io/v1
+kind: Mapping
+metadata:
+  name: dns-ingress
+  namespace: dns
+spec:
+  port: 53
+  prefix: /
+  rewrite: /
+  service: dns-service.dns:53

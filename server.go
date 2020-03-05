@@ -1,9 +1,8 @@
 package main
 
 import (
-	"gitlab.com/kamackay/dns/logging"
 	"github.com/miekg/dns"
-	"log"
+	"gitlab.com/kamackay/dns/logging"
 	"net"
 	"strconv"
 )
@@ -35,9 +34,13 @@ func (this *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func main() {
-	srv := &dns.Server{Addr: ":" + strconv.Itoa(53), Net: "udp"}
+	log := logging.GetLogger()
+	port := strconv.Itoa(53)
+	srv := &dns.Server{Addr: ":" + port, Net: "udp"}
 	srv.Handler = &handler{}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Failed to set udp listener %s\n", err.Error())
+	} else {
+		log.Infof("Connected to port %s", port)
 	}
 }
