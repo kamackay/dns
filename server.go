@@ -27,11 +27,12 @@ func (this *handler) getIp(domain string, logger *logrus.Logger) (string, error)
 			logger.Error(err)
 			return "", err
 		} else {
+			answer := ips[0]
 			go func() {
 				// Add to cache
-
+				this.domains[domain] = answer.String()
 			}()
-			return ips[0].String(), nil
+			return answer.String(), nil
 		}
 	}
 }
