@@ -21,12 +21,12 @@ RUN curl https://raw.githubusercontent.com/google/brotli/master/go/cbrotli/BUILD
 
 ADD ./ ./
 
-RUN go build -o server ./*.go && cp ./server /app/
+RUN go build -o app ./*.go && cp ./app /app/
 
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/server /app/
+COPY --from=builder /app/app /app/
 
-CMD ["./server"]
+CMD ["./app"]
 
 
