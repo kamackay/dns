@@ -1,22 +1,22 @@
-package main
+package server
 
 import (
 	"github.com/bogdanovich/dns_resolver"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/kamackay/dns/logging"
-	"log"
 	"net"
 	"strconv"
 	"strings"
 )
 
-type handler struct {
+type Server struct {
 	resolver *dns_resolver.DnsResolver
 	domains  map[string]string
+	logger *logrus.Logger
 }
 
-func (this *handler) getIp(domain string, logger *logrus.Logger) (string, error) {
+func (this *Server) getIp(domain string, logger *logrus.Logger) (string, error) {
 	address, ok := this.domains[domain]
 	if ok {
 		return address, nil
@@ -37,7 +37,7 @@ func (this *handler) getIp(domain string, logger *logrus.Logger) (string, error)
 	}
 }
 
-func (this *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	logger := logging.GetLogger()
 	msg := dns.Msg{}
 	msg.SetReply(r)
@@ -47,7 +47,7 @@ func (this *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		for _, question := range msg.Question {
 			domain := question.Name
 			address, err := this.getIp(domain, logger)
-			logger.Infof("Request for domain '%s' --> %s", domain, address)
+			logger.Infof("Request for domain '%s' -> %s", domain, address)
 			if err == nil {
 				msg.Answer = append(msg.Answer, &dns.A{
 					Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60},
@@ -59,20 +59,13 @@ func (this *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	w.WriteMsg(&msg)
 }
 
-func main() {
-	logger := logging.GetLogger()
-	logger.Infof("Starting...")
-	port := 53
+func New(port int) *dns.Server {
 	srv := &dns.Server{Addr: ":" + strconv.Itoa(port), Net: "udp"}
-	srv.Handler = &handler{
+	srv.Handler = &Server{
 		resolver: dns_resolver.New([]string{"1.1.1.1"}),
 		domains: map[string]string{
 			"cloudflare.com.": "1.1.1.1",
 		},
 	}
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("Failed to set udp listener %s\n", err.Error())
-	} else {
-		logger.Infof("Started on Port %d", port)
-	}
+	return srv
 }

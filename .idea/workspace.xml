@@ -2,8 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="876274f3-30d9-4624-ab8c-819b1c10db83" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/k8s.yml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server/server.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,6 +24,7 @@
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="DefaultGoTemplateProperty" value="Go File" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
@@ -55,10 +58,10 @@
       <screen x="0" y="0" width="1680" height="1050" />
     </state>
     <state x="683" y="164" key="SettingsEditor/-240.-1080.1920.1080/0.0.1680.1050/1680.-1080.1440.2560@0.0.1680.1050" timestamp="1583429865769" />
-    <state x="304" y="244" width="1072" height="423" key="search.everywhere.popup" timestamp="1583429822380">
+    <state x="304" y="244" width="1072" height="423" key="search.everywhere.popup" timestamp="1583503014130">
       <screen x="0" y="0" width="1680" height="1050" />
     </state>
-    <state x="304" y="244" width="1072" height="423" key="search.everywhere.popup/-240.-1080.1920.1080/0.0.1680.1050/1680.-1080.1440.2560@0.0.1680.1050" timestamp="1583429822380" />
+    <state x="304" y="244" width="1072" height="423" key="search.everywhere.popup/-240.-1080.1920.1080/0.0.1680.1050/1680.-1080.1440.2560@0.0.1680.1050" timestamp="1583503014130" />
     <state x="1870" y="-185" width="670" height="676" key="search.everywhere.popup/1680.-576.1050.1680/0.0.1680.1050/-240.-1200.1920.1200@1680.-576.1050.1680" timestamp="1579275883574" />
   </component>
 </project>

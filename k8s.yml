@@ -5,11 +5,11 @@ metadata:
   name: dns-service
   namespace: dns
 spec:
-  type: LoadBalancer
+  type: NodePort
   ports:
     - name: dns
       port: 53
-      protocol: TCP
+      protocol: UDP
       targetPort: 53
   selector:
     app: dns-service
@@ -17,7 +17,7 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: dns-deploy
+  name: dns
   namespace: dns
   labels:
     app: dns-service
@@ -37,6 +37,6 @@ spec:
           imagePullPolicy: Always
           ports:
             - name: dns
-              protocol: TCP
+              protocol: UDP
               containerPort: 53
 ---
