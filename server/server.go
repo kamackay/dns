@@ -2,13 +2,16 @@ package server
 
 import (
 	"fmt"
-	"gitlab.com/kamackay/dns/dns_resolver"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/miekg/dns"
+	"gitlab.com/kamackay/dns/wildcard"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/kamackay/dns/dns_resolver"
 	"gitlab.com/kamackay/dns/logging"
+	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
@@ -17,7 +20,7 @@ import (
 type Server struct {
 	resolver *dns_resolver.DnsResolver
 	domains  map[string]string
-	logger *logrus.Logger
+	logger   *logrus.Logger
 }
 
 func (this *Server) getIp(domain string, logger *logrus.Logger) (string, error) {
@@ -64,7 +67,7 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (this *Server) startRest() {
-	go func () {
+	go func() {
 		// Instantiate a new router
 		gin.SetMode(gin.ReleaseMode)
 		engine := gin.Default()
@@ -81,18 +84,31 @@ func (this *Server) startRest() {
 			fmt.Printf("Successfully Started Server")
 		}
 	}()
-
 }
 
 func New(port int) *dns.Server {
 	srv := &dns.Server{Addr: ":" + strconv.Itoa(port), Net: "udp"}
 	server := &Server{
 		resolver: dns_resolver.New([]string{"1.1.1.1"}),
-		domains: map[string]string{
-			"cloudflare.com.": "1.1.1.1",
-		},
+		domains: readConfig(),
 	}
 	srv.Handler = server
 	server.startRest()
 	return srv
+}
+
+
+func readConfig() map[string]string {
+	hosts := map[string]string {}
+	data, err := ioutil.ReadFile("/config.json")
+	if err == nil {
+		var config map[string]string
+		err = jsoniter.Unmarshal(data, &config)
+		if err == nil {
+			for key, value := range config {
+				hosts[key] = value
+			}
+		}
+	}
+	return hosts
 }

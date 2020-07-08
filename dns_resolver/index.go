@@ -3,14 +3,13 @@
 package dns_resolver
 
 import (
-"errors"
-"math/rand"
-"net"
-"os"
-"strings"
-"time"
-
-"github.com/miekg/dns"
+	"errors"
+	"github.com/miekg/dns"
+	"math/rand"
+	"net"
+	"os"
+	"strings"
+	"time"
 )
 
 // DnsResolver represents a dns resolver
@@ -77,4 +76,3 @@ func (r *DnsResolver) lookupHost(host string, triesLeft int) ([]net.IP, error) {
 	}
 	return result, err
 }
-

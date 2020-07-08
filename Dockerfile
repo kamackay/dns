@@ -12,11 +12,11 @@ RUN go mod download && go mod verify
 
 ADD ./ ./
 
-RUN go build -o server ./*.go && cp ./server /app/
+RUN go build -o server.file ./*.go && cp ./server.file /app/
 
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/server /app/
+COPY --from=builder /app/server.file /app/server
 
 CMD ["./server"]
 
