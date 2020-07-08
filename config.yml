@@ -1,0 +1,43 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-service
+  namespace: webpage
+spec:
+  type: NodePort
+  ports:
+    - name: dns
+      port: 53
+      protocol: UDP
+      targetPort: 53
+  selector:
+    app: dns-service
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dns-server
+  namespace: webpage
+spec:
+  selector:
+    matchLabels:
+      app: dns-service
+  template:
+    metadata:
+      labels:
+        app: dns-service
+    spec:
+      containers:
+        - name: web
+          image: kamackay/dns:1.0.2
+          imagePullPolicy: Always
+          ports:
+            - name: dns
+              containerPort: 53
+          resources:
+            limits:
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 10M

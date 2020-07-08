@@ -1,8 +1,9 @@
-version: "2"
+version: "3"
 
 services:
-  web:
+  api:
     build:
       context: .
     ports:
-      - 1234:53/udp
+      - 53:53/udp
+      - 9999:9999

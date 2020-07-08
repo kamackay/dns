@@ -1,32 +1,23 @@
 FROM golang:alpine as builder
 
 WORKDIR /app/
-WORKDIR $GOPATH/src/gitlab.com/kamackay/dns
+WORKDIR $GOPATH/src/github.com/kamackay/dns
 
-RUN apk upgrade --update --no-cache && \
-        apk add --no-cache \
-            git \
-            gcc \
-            dep \
-            curl \
-            linux-headers \
-            brotli \
-            build-base
+RUN apk upgrade --update --no-cache
+#RUN apk add --no-cache git
 
-ADD ./Gopkg.toml Gopkg.lock ./dummy/dummy.go ./
+ADD ./go.mod ./
 
-RUN curl https://raw.githubusercontent.com/google/brotli/master/go/cbrotli/BUILD > $GOPATH/BUILD && \
-    dep ensure && \
-    rm dummy.go
+RUN go mod download && go mod verify
 
 ADD ./ ./
 
-RUN go build -o app ./*.go && cp ./app /app/
+RUN go build -o server ./*.go && cp ./server /app/
 
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/app /app/
+COPY --from=builder /app/server /app/
 
-CMD ["./app"]
+CMD ["./server"]
 
 
