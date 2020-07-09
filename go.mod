@@ -11,4 +11,5 @@ require (
 	github.com/rs/zerolog v1.19.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/json-iterator/go v1.1.10
+	github.com/fsnotify/fsnotify v1.4.9
 )

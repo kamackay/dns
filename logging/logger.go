@@ -20,7 +20,11 @@ func init() {
 
 func GetLogger() *logrus.Logger {
 	logger := logrus.New()
-	logger.SetReportCaller(true)
+	//logger.SetReportCaller(true)
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+		ForceColors:   true,
+	})
 	logger.SetLevel(logrus.InfoLevel)
 	return logger
 }

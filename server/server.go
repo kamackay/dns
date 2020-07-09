@@ -2,29 +2,52 @@ package server
 
 import (
 	"fmt"
+	"github.com/fsnotify/fsnotify"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/miekg/dns"
-	"gitlab.com/kamackay/dns/wildcard"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/kamackay/dns/dns_resolver"
 	"gitlab.com/kamackay/dns/logging"
+	"gitlab.com/kamackay/dns/wildcard"
 	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Server struct {
-	resolver *dns_resolver.DnsResolver
-	domains  map[string]string
-	logger   *logrus.Logger
+	resolver   *dns_resolver.DnsResolver
+	domains    sync.Map
+	logger     *logrus.Logger
+	printMutex *sync.Mutex
+}
+
+func (this *Server) lookupInMap(domain string) (string, bool) {
+	address, ok := this.domains.Load(domain)
+	if ok {
+		return address.(string), ok
+	} else {
+		this.domains.Range(func(key, value interface{}) bool {
+			if wildcard.Match(key.(string), domain) {
+				address = value
+				ok = true
+				return false
+			}
+			return true
+		})
+	}
+	if address == nil {
+		return "", false
+	}
+	return address.(string), ok
 }
 
 func (this *Server) getIp(domain string, logger *logrus.Logger) (string, error) {
-	address, ok := this.domains[domain]
+	address, ok := this.lookupInMap(domain)
 	if ok {
 		return address, nil
 	} else {
@@ -37,7 +60,8 @@ func (this *Server) getIp(domain string, logger *logrus.Logger) (string, error) 
 			answer := ips[0]
 			go func() {
 				// Add to cache
-				this.domains[domain] = answer.String()
+				this.domains.Store(domain, answer.String())
+				this.printAllHosts()
 			}()
 			return answer.String(), nil
 		}
@@ -75,7 +99,14 @@ func (this *Server) startRest() {
 		engine.Use(cors.Default())
 		//engine.Use(logger.SetLogger())
 		engine.GET("/", func(c *gin.Context) {
-			c.JSON(200, this.domains)
+			hosts := map[string]string{}
+			this.domains.Range(func(key, value interface{}) bool {
+				if key != nil && value != nil {
+					hosts[key.(string)] = value.(string)
+				}
+				return true
+			})
+			c.JSON(200, hosts)
 		})
 
 		if err := engine.Run(":9999"); err != nil {
@@ -89,26 +120,53 @@ func (this *Server) startRest() {
 func New(port int) *dns.Server {
 	srv := &dns.Server{Addr: ":" + strconv.Itoa(port), Net: "udp"}
 	server := &Server{
-		resolver: dns_resolver.New([]string{"1.1.1.1"}),
-		domains: readConfig(),
+		resolver:   dns_resolver.New([]string{"1.1.1.1"}),
+		domains:    *readConfig(),
+		printMutex: &sync.Mutex{},
 	}
 	srv.Handler = server
 	server.startRest()
+	watcher, err := fsnotify.NewWatcher()
+	if err == nil && watcher.Add("/config.json") == nil {
+		go func() {
+			for {
+				select {
+				// watch for events
+				case _ = <-watcher.Events:
+					fmt.Println("Reloading Config File")
+					readConfig().Range(func(key, value interface{}) bool {
+						server.domains.Store(key, value)
+						return true
+					})
+				}
+			}
+		}()
+	}
 	return srv
 }
 
+func (this *Server) printAllHosts() {
+ 	this.printMutex.Lock()
+ 	hosts := make([]string, 0)
+ 	this.domains.Range(func(key, _ interface{}) bool {
+		hosts = append(hosts, key.(string))
+		return true
+	})
+ 	ioutil.WriteFile("/hosts.txt", []byte(strings.Join(hosts, "\n")), 0644)
+ 	this.printMutex.Unlock()
+}
 
-func readConfig() map[string]string {
-	hosts := map[string]string {}
-	data, err := ioutil.ReadFile("/config.json")
+func readConfig() *sync.Map {
+	var hosts sync.Map
+	data, err := ioutil.ReadFile("/app/config.json")
 	if err == nil {
-		var config map[string]string
+		var config map[string]interface{}
 		err = jsoniter.Unmarshal(data, &config)
 		if err == nil {
-			for key, value := range config {
-				hosts[key] = value
+			for key, value := range config["hosts"].(map[string]interface{}) {
+				hosts.Store(key, value)
 			}
 		}
 	}
-	return hosts
+	return &hosts
 }
