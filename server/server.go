@@ -152,13 +152,14 @@ func (this *Server) printAllHosts() {
 		hosts = append(hosts, key.(string))
 		return true
 	})
- 	ioutil.WriteFile("/hosts.txt", []byte(strings.Join(hosts, "\n")), 0644)
+ 	str := strings.Join(hosts, "\n")
+ 	ioutil.WriteFile("/app/hosts.txt", []byte(str + "\n"), 0644)
  	this.printMutex.Unlock()
 }
 
 func readConfig() *sync.Map {
 	var hosts sync.Map
-	data, err := ioutil.ReadFile("/app/config.json")
+	data, err := ioutil.ReadFile("/config.json")
 	if err == nil {
 		var config map[string]interface{}
 		err = jsoniter.Unmarshal(data, &config)

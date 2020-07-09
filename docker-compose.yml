@@ -10,4 +10,4 @@ services:
       - 9999:9999
     volumes:
     - ./config.json:/config.json
-    - ./hosts.txt:/app/hosts.txt
+    - ./.ignore/hosts.txt:/app/hosts.txt
