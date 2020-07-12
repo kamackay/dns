@@ -14,6 +14,31 @@ spec:
   selector:
     app: dns-service
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-file
+  namespace: dns
+data:
+  config.json: |
+    {
+      "hosts": {
+        "*.local.": "127.0.0.1",
+        "*.mac.": "127.0.0.1",
+        "*.www.": "127.0.0.1"
+      },
+      "blocks": {
+        "*.google-analytics.com.": true,
+        "marketingplatform.google.com": true
+      },
+      "servers": [
+        "1.1.1.1",
+        "192.168.4.1",
+        "209.18.47.61",
+        "209.18.47.62"
+      ]
+    }
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -35,8 +60,16 @@ spec:
         - name: server
           image: registry.gitlab.com/kamackay/dns:latest
           imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /config.json
+              subPath: config.json
+              name: config-file
           ports:
             - name: dns
               protocol: UDP
               containerPort: 53
+      volumes:
+        - name: config-file
+          configMap:
+            name: config-file
 ---
