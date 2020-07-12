@@ -12,14 +12,19 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/kamackay/dns/dns_resolver"
 	"gitlab.com/kamackay/dns/logging"
-	"gitlab.com/kamackay/dns/wildcard"
 	"gitlab.com/kamackay/dns/util"
+	"gitlab.com/kamackay/dns/wildcard"
 	"io/ioutil"
+	"math"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	TIMEOUT = 360000
 )
 
 type Server struct {
@@ -30,36 +35,40 @@ type Server struct {
 	printMutex *sync.Mutex
 }
 
-func (this *Server) lookupInMap(domain string) (string, bool) {
-	address, ok := this.domains.Load(domain)
+func (this *Server) lookupInMap(domainName string) (string, bool) {
+	domainInterface, ok := this.domains.Load(domainName)
+	var domain *Domain
 	if ok {
-		return address.(string), ok
-	} else {
-		this.domains.Range(func(key, value interface{}) bool {
-			if wildcard.Match(key.(string), domain) {
-				address = value
-				ok = true
-				return false
-			}
-			return true
-		})
+		domain = domainInterface.(*Domain)
+		if time.Now().UnixNano()-domain.Time <= TIMEOUT {
+			return domain.Ip, ok
+		}
 	}
-	if address == nil {
+	this.domains.Range(func(key, value interface{}) bool {
+		if wildcard.Match(key.(string), domainName) {
+			domain = value.(*Domain)
+			ok = true
+			return false
+		}
+		return true
+	})
+
+	if domain == nil {
 		return "", false
 	}
-	return address.(string), ok
+	return domain.Ip, ok
 }
 
-func (this *Server) getIp(domain string) (string, error) {
-	if this.checkBlock(domain) {
-		return "", errors.New("blocked domain")
+func (this *Server) getIp(domainName string) (string, error) {
+	if this.checkBlock(domainName) {
+		return "", errors.New("blocked domainName")
 	}
-	address, ok := this.lookupInMap(domain)
+	address, ok := this.lookupInMap(domainName)
 	if ok {
 		return address, nil
 	} else {
-		this.logger.Infof("Looking up %s", domain)
-		if ips, err := this.resolver.LookupHost(strings.TrimRight(domain, "."));
+		this.logger.Infof("Looking up %s", domainName)
+		if ips, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
 			err != nil || len(ips) == 0 {
 			this.logger.Error(err)
 			return "", err
@@ -67,7 +76,11 @@ func (this *Server) getIp(domain string) (string, error) {
 			answer := ips[0]
 			go func() {
 				// Add to cache
-				this.domains.Store(domain, answer.String())
+				this.domains.Store(domainName, &Domain{
+					Ip:   answer.String(),
+					Name: domainName,
+					Time: time.Now().UnixNano(),
+				})
 				this.printAllHosts()
 			}()
 			return answer.String(), nil
@@ -89,7 +102,7 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	start := time.Now().UnixNano()
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Recovered in f", r)
+			fmt.Println("Recovering from:", r)
 			w.Close()
 		}
 	}()
@@ -100,12 +113,13 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		msg.Authoritative = true
 		for _, question := range msg.Question {
 			domain := question.Name
-			address, err := this.getIp(domain)
 			defer func() {
-				this.logger.Infof("{%s} Request for domain '%s' -> %s",
-					util.PrintTimeDiff(start),
-					domain, address)
+				this.logger.Infof("Processed %s in %s",
+					domain, util.PrintTimeDiff(start))
 			}()
+			address, err := this.getIp(domain)
+			this.logger.Infof("Request for domain '%s' -> %s",
+				domain, address)
 			if err == nil {
 				msg.Answer = append(msg.Answer, &dns.A{
 					Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60},
@@ -126,10 +140,10 @@ func (this *Server) startRest() {
 		engine.Use(cors.Default())
 		//engine.Use(logger.SetLogger())
 		engine.GET("/", func(c *gin.Context) {
-			hosts := map[string]string{}
+			hosts := map[string]*Domain{}
 			this.domains.Range(func(key, value interface{}) bool {
 				if key != nil && value != nil {
-					hosts[key.(string)] = value.(string)
+					hosts[key.(string)] = value.(*Domain)
 				}
 				return true
 			})
@@ -152,14 +166,18 @@ func New(port int) *dns.Server {
 		return nil
 	}
 	client := &Server{
-		resolver:   dns_resolver.New([]string{"1.1.1.1"}),
+		resolver:   dns_resolver.New(config.Servers),
 		config:     config,
 		printMutex: &sync.Mutex{},
 		logger:     logging.GetLogger(),
 	}
 	convertMapToMutex(config.Hosts).
 		Range(func(key, value interface{}) bool {
-			client.domains.Store(key, value)
+			client.domains.Store(key, &Domain{
+				Name: key.(string),
+				Ip:   value.(string),
+				Time: math.MaxInt64,
+			})
 			return true
 		})
 	srv.Handler = client
@@ -177,9 +195,14 @@ func New(port int) *dns.Server {
 						fmt.Println("Error Reading the Config", err.Error())
 					}
 					client.config = newConfig
+					client.resolver = dns_resolver.New(newConfig.Servers)
 					convertMapToMutex(newConfig.Hosts).
 						Range(func(key, value interface{}) bool {
-							client.domains.Store(key, value)
+							client.domains.Store(key, &Domain{
+								Name: key.(string),
+								Ip:   value.(string),
+								Time: math.MaxInt64,
+							})
 							return true
 						})
 				}
@@ -214,6 +237,13 @@ func readConfig() (*Config, error) {
 }
 
 type Config struct {
-	Hosts  map[string]interface{} `json:"hosts"`
-	Blocks map[string]bool        `json:"blocks"`
+	Hosts   map[string]interface{} `json:"hosts"`
+	Blocks  map[string]bool        `json:"blocks"`
+	Servers []string               `json:"servers"`
+}
+
+type Domain struct {
+	Name string `json:"name"`
+	Time int64  `json:"time"`
+	Ip   string `json:"ip"`
 }

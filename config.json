@@ -7,5 +7,11 @@
   "blocks": {
     "*.google-analytics.com.": true,
     "marketingplatform.google.com": true
-  }
+  },
+  "servers": [
+    "1.1.1.1",
+    "192.168.4.1",
+    "209.18.47.61",
+    "209.18.47.62"
+  ]
 }
