@@ -3,5 +3,9 @@
     "*.local.": "127.0.0.1",
     "*.mac.": "127.0.0.1",
     "*.www.": "127.0.0.1"
+  },
+  "blocks": {
+    "*.google-analytics.com.": true,
+    "marketingplatform.google.com": true
   }
 }
