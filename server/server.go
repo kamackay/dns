@@ -33,6 +33,7 @@ type Server struct {
 	config     *Config
 	logger     *logrus.Logger
 	printMutex *sync.Mutex
+	blockList sync.Map
 }
 
 func (this *Server) lookupInMap(domainName string) (string, bool) {

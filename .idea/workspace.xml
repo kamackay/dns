@@ -2,7 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="876274f3-30d9-4624-ab8c-819b1c10db83" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/k8s.yml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/server/server.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/server/utils.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -16,9 +21,12 @@
       </list>
     </option>
   </component>
-  <component name="GOROOT" path="/usr/local/Cellar/go/1.14.4/libexec" />
+  <component name="GOROOT" path="/usr/local/Cellar/go/1.14.5/libexec" />
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GoLibraries">
+    <option name="indexEntireGoPath" value="false" />
   </component>
   <component name="ProjectId" id="1WWpAvHQenqxGn4AoTX4qrr61rY" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
@@ -28,11 +36,14 @@
   </component>
   <component name="PropertiesComponent">
     <property name="DefaultGoTemplateProperty" value="Go File" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="go.import.settings.migrated" value="true" />
+    <property name="go.sdk.automatically.set" value="true" />
     <property name="go.tried.to.enable.integration.dep.integrator" value="true" />
+    <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
@@ -42,20 +53,28 @@
     </key>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
-    <option name="version" value="1" />
+    <option name="version" value="2" />
+  </component>
+  <component name="VgoProject">
+    <integration-enabled>true</integration-enabled>
   </component>
   <component name="WindowStateProjectService">
     <state x="512" y="387" key="#GOROOT" timestamp="1594243532278">
       <screen x="0" y="0" width="1440" height="900" />
     </state>
     <state x="512" y="387" key="#GOROOT/0.0.1440.900@0.0.1440.900" timestamp="1594243532278" />
+    <state x="-1342" y="366" key="#Notifications" timestamp="1595964673665">
+      <screen x="-1920" y="-57" width="1920" height="1177" />
+    </state>
+    <state x="-1342" y="366" key="#Notifications/-1920.-57.1920.1177/0.23.1792.1097@-1920.-57.1920.1177" timestamp="1595964673665" />
     <state x="421" y="205" width="598" height="490" key="find.popup" timestamp="1594244479883">
       <screen x="0" y="0" width="1440" height="900" />
     </state>
     <state x="421" y="205" width="598" height="490" key="find.popup/0.0.1440.900@0.0.1440.900" timestamp="1594244479883" />
-    <state x="385" y="112" width="670" height="676" key="search.everywhere.popup" timestamp="1594570478234">
-      <screen x="0" y="0" width="1440" height="900" />
+    <state x="-1407" y="89" width="894" height="885" key="search.everywhere.popup" timestamp="1595964717355">
+      <screen x="-1920" y="-57" width="1920" height="1177" />
     </state>
+    <state x="-1407" y="89" width="894" height="885" key="search.everywhere.popup/-1920.-57.1920.1177/0.23.1792.1097@-1920.-57.1920.1177" timestamp="1595964717355" />
     <state x="385" y="112" width="670" height="676" key="search.everywhere.popup/0.0.1440.900@0.0.1440.900" timestamp="1594570478234" />
     <state x="385" y="112" width="670" height="676" key="search.everywhere.popup/0.23.1440.877@0.23.1440.877" timestamp="1594257731765" />
   </component>
