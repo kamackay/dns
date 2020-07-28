@@ -36,8 +36,6 @@ func (this *Server) pullBlockList() {
 	}
 }
 
-
-
 func (this *Server) printAllHosts() {
 	this.printMutex.Lock()
 	hosts := make([]string, 0)
