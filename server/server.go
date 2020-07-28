@@ -7,14 +7,12 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/kamackay/dns/dns_resolver"
 	"gitlab.com/kamackay/dns/logging"
 	"gitlab.com/kamackay/dns/util"
 	"gitlab.com/kamackay/dns/wildcard"
-	"io/ioutil"
 	"math"
 	"net"
 	"strconv"
@@ -24,7 +22,10 @@ import (
 )
 
 const (
-	TIMEOUT = 360000
+	Timeout       = 360000
+	Ok       int8 = 0
+	Block    int8 = 1
+	NotFound int8 = 2
 )
 
 type Server struct {
@@ -33,40 +34,50 @@ type Server struct {
 	config     *Config
 	logger     *logrus.Logger
 	printMutex *sync.Mutex
-	blockList sync.Map
 }
 
-func (this *Server) lookupInMap(domainName string) (string, bool) {
+func (this *Server) lookupInMap(domainName string) (string, int8) {
 	domainInterface, ok := this.domains.Load(domainName)
 	var domain *Domain
+	var result int8
 	if ok {
+		result = Ok
 		domain = domainInterface.(*Domain)
-		if time.Now().UnixNano()-domain.Time <= TIMEOUT {
-			return domain.Ip, ok
+		if time.Now().UnixNano()-domain.Time <= Timeout {
+			return domain.Ip, result
 		}
+	} else {
+		result = NotFound
 	}
 	this.domains.Range(func(key, value interface{}) bool {
 		if wildcard.Match(key.(string), domainName) {
 			domain = value.(*Domain)
-			ok = true
+			if domain.Block {
+				result = Block
+			} else {
+				result = Ok
+			}
 			return false
 		}
 		return true
 	})
 
 	if domain == nil {
-		return "", false
+		return "", result
 	}
-	return domain.Ip, ok
+	return domain.Ip, result
 }
 
 func (this *Server) getIp(domainName string) (string, error) {
 	if this.checkBlock(domainName) {
 		return "", errors.New("blocked domainName")
 	}
-	address, ok := this.lookupInMap(domainName)
-	if ok {
+	address, result := this.lookupInMap(domainName)
+	if result == Ok {
 		return address, nil
+	} else if result == Block {
+		this.logger.Warnf("Blocking %s", domainName)
+		return "", errors.New("blocked")
 	} else {
 		this.logger.Infof("Looking up %s", domainName)
 		if ips, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
@@ -78,9 +89,10 @@ func (this *Server) getIp(domainName string) (string, error) {
 			go func() {
 				// Add to cache
 				this.domains.Store(domainName, &Domain{
-					Ip:   answer.String(),
-					Name: domainName,
-					Time: time.Now().UnixNano(),
+					Ip:    answer.String(),
+					Name:  domainName,
+					Time:  time.Now().UnixNano(),
+					Block: false,
 				})
 				this.printAllHosts()
 			}()
@@ -159,12 +171,12 @@ func (this *Server) startRest() {
 	}()
 }
 
-func New(port int) *dns.Server {
+func New(port int) (*dns.Server, *Server) {
 	srv := &dns.Server{Addr: ":" + strconv.Itoa(port), Net: "udp"}
 	config, err := readConfig()
 	if err != nil {
 		fmt.Println("Error Reading the Config", err.Error())
-		return nil
+		return nil, nil
 	}
 	client := &Server{
 		resolver:   dns_resolver.New(config.Servers),
@@ -175,14 +187,14 @@ func New(port int) *dns.Server {
 	convertMapToMutex(config.Hosts).
 		Range(func(key, value interface{}) bool {
 			client.domains.Store(key, &Domain{
-				Name: key.(string),
-				Ip:   value.(string),
-				Time: math.MaxInt64,
+				Name:  key.(string),
+				Ip:    value.(string),
+				Time:  math.MaxInt64,
+				Block: false,
 			})
 			return true
 		})
 	srv.Handler = client
-	client.startRest()
 	watcher, err := fsnotify.NewWatcher()
 	if err == nil && watcher.Add("/config.json") == nil {
 		go func() {
@@ -200,9 +212,10 @@ func New(port int) *dns.Server {
 					convertMapToMutex(newConfig.Hosts).
 						Range(func(key, value interface{}) bool {
 							client.domains.Store(key, &Domain{
-								Name: key.(string),
-								Ip:   value.(string),
-								Time: math.MaxInt64,
+								Name:  key.(string),
+								Ip:    value.(string),
+								Time:  math.MaxInt64,
+								Block: false,
 							})
 							return true
 						})
@@ -210,31 +223,15 @@ func New(port int) *dns.Server {
 			}
 		}()
 	}
-	return srv
+	return srv, client
 }
 
-func (this *Server) printAllHosts() {
-	this.printMutex.Lock()
-	hosts := make([]string, 0)
-	this.domains.Range(func(key, _ interface{}) bool {
-		hosts = append(hosts, key.(string))
-		return true
-	})
-	str := strings.Join(hosts, "\n")
-	ioutil.WriteFile("/app/hosts.txt", []byte(str+"\n"), 0644)
-	this.printMutex.Unlock()
-}
-
-func readConfig() (*Config, error) {
-	data, err := ioutil.ReadFile("/config.json")
-	var config Config
-	if err == nil {
-		err = jsoniter.Unmarshal(data, &config)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &config, nil
+func (this *Server) PreStart() {
+	this.startRest()
+	go func() {
+		time.Sleep(time.Second)
+		this.pullBlockList()
+	}()
 }
 
 type Config struct {
@@ -244,7 +241,8 @@ type Config struct {
 }
 
 type Domain struct {
-	Name string `json:"name"`
-	Time int64  `json:"time"`
-	Ip   string `json:"ip"`
+	Name  string `json:"name"`
+	Time  int64  `json:"time"`
+	Ip    string `json:"ip"`
+	Block bool   `json:"block"`
 }
