@@ -8,11 +8,9 @@ import (
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/miekg/dns"
-	"github.com/sirupsen/logrus"
 	"gitlab.com/kamackay/dns/dns_resolver"
 	"gitlab.com/kamackay/dns/logging"
 	"gitlab.com/kamackay/dns/util"
-	"gitlab.com/kamackay/dns/wildcard"
 	"math"
 	"net"
 	"strconv"
@@ -21,46 +19,29 @@ import (
 	"time"
 )
 
-const (
-	Timeout       = 360000
-	Ok       int8 = 0
-	Block    int8 = 1
-	NotFound int8 = 2
-)
-
-type Server struct {
-	resolver   *dns_resolver.DnsResolver
-	domains    sync.Map
-	config     *Config
-	logger     *logrus.Logger
-	printMutex *sync.Mutex
-}
-
 func (this *Server) lookupInMap(domainName string) (string, int8) {
-	domainInterface, ok := this.domains.Load(domainName)
+	domainInterface, ok := lookupInMap(convertMutexToMap(&this.domains), domainName)
 	var domain *Domain
 	var result int8
 	if ok {
-		result = Ok
 		domain = domainInterface.(*Domain)
+		result = getResultFromDomain(domain)
 		if time.Now().UnixNano()-domain.Time <= Timeout {
 			return domain.Ip, result
 		}
 	} else {
 		result = NotFound
 	}
-	this.domains.Range(func(key, value interface{}) bool {
-		if wildcard.Match(key.(string), domainName) {
-			domain = value.(*Domain)
-			if domain.Block {
-				result = Block
-			} else {
-				result = Ok
-			}
-			return false
-		}
-		return true
-	})
+
+	if domain != nil && domain.Block {
+		// If the domain is blocked, add it to the map so that the next lookup is faster
+		this.domains.Store(domainName, &Domain{
+			Name:  domainName,
+			Time:  math.MaxInt64,
+			Ip:    BlockedIp,
+			Block: true,
+		})
+	}
 
 	if domain == nil {
 		return "", result
@@ -70,16 +51,16 @@ func (this *Server) lookupInMap(domainName string) (string, int8) {
 
 func (this *Server) getIp(domainName string) (string, error) {
 	if this.checkBlock(domainName) {
-		return "", errors.New("blocked domainName")
+		return BlockedIp, errors.New("blocked " + domainName)
 	}
 	address, result := this.lookupInMap(domainName)
 	if result == Ok {
 		return address, nil
 	} else if result == Block {
 		this.logger.Warnf("Blocking %s", domainName)
-		return "", errors.New("blocked")
+		return BlockedIp, errors.New("blocked " + domainName)
 	} else {
-		this.logger.Infof("Looking up %s", domainName)
+		this.logger.Infof("Fetching %s", domainName)
 		if ips, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
 			err != nil || len(ips) == 0 {
 			this.logger.Error(err)
@@ -103,12 +84,8 @@ func (this *Server) getIp(domainName string) (string, error) {
 
 // Return True if Blocked
 func (this *Server) checkBlock(domain string) bool {
-	for key, val := range this.config.Blocks {
-		if wildcard.Match(key, domain) && val {
-			return true
-		}
-	}
-	return false
+	val, ok := lookupBoolInMap(this.config.Blocks, domain)
+	return ok && val != nil && *val
 }
 
 func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
@@ -116,7 +93,7 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovering from:", r)
-			w.Close()
+			_ = w.Close()
 		}
 	}()
 	msg := dns.Msg{}
@@ -126,13 +103,11 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		msg.Authoritative = true
 		for _, question := range msg.Question {
 			domain := question.Name
-			defer func() {
-				this.logger.Infof("Processed %s in %s",
-					domain, util.PrintTimeDiff(start))
-			}()
 			address, err := this.getIp(domain)
-			this.logger.Infof("Request for domain '%s' -> %s",
-				domain, address)
+			defer func() {
+				this.logger.Infof("Lookup %s in %s -> %s",
+					domain, util.PrintTimeDiff(start), address)
+			}()
 			if err == nil {
 				msg.Answer = append(msg.Answer, &dns.A{
 					Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60},
@@ -141,7 +116,7 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			}
 		}
 	}
-	w.WriteMsg(&msg)
+	_ = w.WriteMsg(&msg)
 }
 
 func (this *Server) startRest() {

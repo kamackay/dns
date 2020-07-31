@@ -29,7 +29,7 @@ func PrintTimeDiff(start int64) string {
 	if msDiff > 0 {
 		builder = append(builder, fmt.Sprintf("%dms", msDiff%1000))
 	}
-	if nano > 0 {
+	if nano > 0 && msDiff == 0 {
 		builder = append(builder, fmt.Sprintf("%sμs", humanize.Comma(nano / 1000)))
 	}
 	return strings.TrimSpace(strings.Join(builder, " "))

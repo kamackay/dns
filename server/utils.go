@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/sirupsen/logrus"
+	"gitlab.com/kamackay/dns/dns_resolver"
+	"gitlab.com/kamackay/dns/wildcard"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -12,12 +15,37 @@ import (
 	"time"
 )
 
+const (
+	Timeout        = 360000
+	BlockedIp      = "Blocked!"
+	Ok        int8 = 0
+	Block     int8 = 1
+	NotFound  int8 = 2
+)
+
+type Server struct {
+	resolver   *dns_resolver.DnsResolver
+	domains    sync.Map
+	config     *Config
+	logger     *logrus.Logger
+	printMutex *sync.Mutex
+}
+
 func convertMapToMutex(slice map[string]interface{}) *sync.Map {
 	var mutexMap sync.Map
 	for key, value := range slice {
 		mutexMap.Store(key, value)
 	}
 	return &mutexMap
+}
+
+func convertMutexToMap(mutex *sync.Map) map[string]interface{} {
+	slice := make(map[string]interface{})
+	mutex.Range(func(key, value interface{}) bool {
+		slice[key.(string)] = value
+		return true
+	})
+	return slice
 }
 
 func (this *Server) pullBlockList() {
@@ -29,7 +57,7 @@ func (this *Server) pullBlockList() {
 			this.domains.Store(name, &Domain{
 				Name:  name,
 				Time:  math.MaxInt64,
-				Ip:    "0.0.0.0",
+				Ip:    BlockedIp,
 				Block: true,
 			})
 		}
@@ -69,4 +97,36 @@ func getJson(url string, target interface{}) error {
 	defer r.Body.Close()
 
 	return json.NewDecoder(r.Body).Decode(target)
+}
+
+func getResultFromDomain(domain *Domain) int8 {
+	if domain.Block {
+		return Block
+	}
+	return Ok
+}
+
+func lookupInMap(items map[string]interface{}, lookup string) (interface{}, bool) {
+	exact, ok := items[lookup]
+	if ok {
+		return exact, true
+	}
+	for key, val := range items {
+		if wildcard.Match(key, lookup) {
+			return val, true
+		}
+	}
+	return nil, false
+}
+func lookupBoolInMap(items map[string]bool, lookup string) (*bool, bool) {
+	exact, ok := items[lookup]
+	if ok {
+		return &exact, true
+	}
+	for key, val := range items {
+		if wildcard.Match(key, lookup) {
+			return &val, true
+		}
+	}
+	return nil, false
 }
