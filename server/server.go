@@ -132,18 +132,13 @@ func (this *Server) startRest() {
 		engine.Use(cors.Default())
 		//engine.Use(logger.SetLogger())
 		engine.GET("/", func(c *gin.Context) {
-			stats := &Stats{
-				LookupRequests: this.stats.LookupRequests,
-				CachedRequests: this.stats.CachedRequests,
-				Domains:        this.stats.Domains,
-			}
 			this.domains.Range(func(key, value interface{}) bool {
 				if key != nil && value != nil {
-					stats.Domains[key.(string)] = value.(*Domain)
+					this.stats.Domains[key.(string)] = value.(*Domain)
 				}
 				return true
 			})
-			c.JSON(200, stats)
+			c.JSON(200, this.stats)
 		})
 
 		if err := engine.Run(":9999"); err != nil {

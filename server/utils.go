@@ -53,6 +53,7 @@ func (this *Server) pullBlockList() {
 	var list []string
 	err := getJson("https://api.keith.sh/ls.json", &list)
 	if err == nil {
+		this.logger.Infof("Pulled %d Servers to Block", len(list))
 		for _, server := range list {
 			name := fmt.Sprintf("*%s.", server)
 			this.domains.Store(name, &Domain{
