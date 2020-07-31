@@ -1,0 +1,8 @@
+.git/
+.ignore/
+k8s.yml
+Dockerfile
+docker-compose.yml
+.gitignore
+.gitlab-ci.yml
+LICENSE

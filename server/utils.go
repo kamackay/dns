@@ -29,6 +29,7 @@ type Server struct {
 	config     *Config
 	logger     *logrus.Logger
 	printMutex *sync.Mutex
+	stats      Stats
 }
 
 func convertMapToMutex(slice map[string]interface{}) *sync.Map {

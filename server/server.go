@@ -46,6 +46,7 @@ func (this *Server) lookupInMap(domainName string) (string, int8) {
 	if domain == nil {
 		return "", result
 	}
+	this.stats.CachedRequests++
 	return domain.Ip, result
 }
 
@@ -58,11 +59,13 @@ func (this *Server) getIp(domainName string) (string, error) {
 		return address, nil
 	} else if result == Block {
 		this.logger.Warnf("Blocking %s", domainName)
+		this.stats.BlockedRequests++
 		return BlockedIp, errors.New("blocked " + domainName)
 	} else {
 		this.logger.Infof("Fetching %s", domainName)
 		if ips, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
 			err != nil || len(ips) == 0 {
+			this.stats.FailedRequests++
 			this.logger.Error(err)
 			return "", err
 		} else {
@@ -75,7 +78,8 @@ func (this *Server) getIp(domainName string) (string, error) {
 					Time:  time.Now().UnixNano(),
 					Block: false,
 				})
-				this.printAllHosts()
+				this.stats.LookupRequests++
+				//this.printAllHosts()
 			}()
 			return answer.String(), nil
 		}
@@ -128,14 +132,18 @@ func (this *Server) startRest() {
 		engine.Use(cors.Default())
 		//engine.Use(logger.SetLogger())
 		engine.GET("/", func(c *gin.Context) {
-			hosts := map[string]*Domain{}
+			stats := &Stats{
+				LookupRequests: this.stats.LookupRequests,
+				CachedRequests: this.stats.CachedRequests,
+				Domains:        this.stats.Domains,
+			}
 			this.domains.Range(func(key, value interface{}) bool {
 				if key != nil && value != nil {
-					hosts[key.(string)] = value.(*Domain)
+					stats.Domains[key.(string)] = value.(*Domain)
 				}
 				return true
 			})
-			c.JSON(200, hosts)
+			c.JSON(200, stats)
 		})
 
 		if err := engine.Run(":9999"); err != nil {
@@ -154,10 +162,15 @@ func New(port int) (*dns.Server, *Server) {
 		return nil, nil
 	}
 	client := &Server{
-		resolver:   dns_resolver.New(config.Servers),
+		resolver:   dns_resolver.New(config.DnsServers),
 		config:     config,
 		printMutex: &sync.Mutex{},
 		logger:     logging.GetLogger(),
+		stats: Stats{
+			LookupRequests: 0,
+			CachedRequests: 0,
+			Domains:        make(map[string]*Domain),
+		},
 	}
 	convertMapToMutex(config.Hosts).
 		Range(func(key, value interface{}) bool {
@@ -183,7 +196,7 @@ func New(port int) (*dns.Server, *Server) {
 						fmt.Println("Error Reading the Config", err.Error())
 					}
 					client.config = newConfig
-					client.resolver = dns_resolver.New(newConfig.Servers)
+					client.resolver = dns_resolver.New(newConfig.DnsServers)
 					convertMapToMutex(newConfig.Hosts).
 						Range(func(key, value interface{}) bool {
 							client.domains.Store(key, &Domain{
@@ -209,10 +222,18 @@ func (this *Server) PreStart() {
 	}()
 }
 
+type Stats struct {
+	LookupRequests  int64              `json:"lookupRequests"`
+	CachedRequests  int64              `json:"cachedRequests"`
+	BlockedRequests int64              `json:"blockedRequests"`
+	FailedRequests  int64              `json:"failedRequests"`
+	Domains         map[string]*Domain `json:"domains"`
+}
+
 type Config struct {
-	Hosts   map[string]interface{} `json:"hosts"`
-	Blocks  map[string]bool        `json:"blocks"`
-	Servers []string               `json:"servers"`
+	Hosts      map[string]interface{} `json:"hosts"`
+	Blocks     map[string]bool        `json:"blocks"`
+	DnsServers []string               `json:"servers"`
 }
 
 type Domain struct {
