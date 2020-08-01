@@ -133,6 +133,8 @@ func (this *Server) startRest() {
 		//engine.Use(logger.SetLogger())
 		engine.GET("/", func(c *gin.Context) {
 			this.domains.Range(func(key, value interface{}) bool {
+				running := util.PrintTimeDiff(this.stats.Started)
+				this.stats.Running = &running
 				if key != nil && value != nil {
 					this.stats.Domains[key.(string)] = value.(*Domain)
 				}
@@ -165,6 +167,7 @@ func New(port int) (*dns.Server, *Server) {
 			LookupRequests: 0,
 			CachedRequests: 0,
 			Domains:        make(map[string]*Domain),
+			Started:        time.Now().UnixNano(),
 		},
 	}
 	convertMapToMutex(config.Hosts).
@@ -218,6 +221,8 @@ func (this *Server) PreStart() {
 }
 
 type Stats struct {
+	Started         int64
+	Running         *string            `json:"running"`
 	LookupRequests  int64              `json:"lookupRequests"`
 	CachedRequests  int64              `json:"cachedRequests"`
 	BlockedRequests int64              `json:"blockedRequests"`
