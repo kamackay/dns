@@ -40,10 +40,10 @@ func convertMapToMutex(slice map[string]interface{}) *sync.Map {
 	return &mutexMap
 }
 
-func convertMutexToMap(mutex *sync.Map) map[string]interface{} {
-	slice := make(map[string]interface{})
+func convertMutexToMap(mutex *sync.Map) map[string]*Domain {
+	slice := make(map[string]*Domain)
 	mutex.Range(func(key, value interface{}) bool {
-		slice[key.(string)] = value
+		slice[key.(string)] = value.(*Domain)
 		return true
 	})
 	return slice
@@ -108,13 +108,15 @@ func getResultFromDomain(domain *Domain) int8 {
 	return Ok
 }
 
-func lookupInMap(items map[string]interface{}, lookup string) (interface{}, bool) {
+func lookupInMapAndUpdate(items map[string]*Domain, lookup string, updater func(*Domain)) (interface{}, bool) {
 	exact, ok := items[lookup]
 	if ok {
+		updater(exact)
 		return exact, true
 	}
 	for key, val := range items {
 		if wildcard.Match(key, lookup) {
+			updater(val)
 			return val, true
 		}
 	}

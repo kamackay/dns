@@ -20,7 +20,11 @@ import (
 )
 
 func (this *Server) lookupInMap(domainName string) (string, int8) {
-	domainInterface, ok := lookupInMap(convertMutexToMap(&this.domains), domainName)
+	domainInterface, ok := lookupInMapAndUpdate(convertMutexToMap(&this.domains),
+		domainName,
+		func(domain *Domain) {
+			domain.Requests++
+		})
 	var domain *Domain
 	var result int8
 	if ok {
@@ -35,11 +39,12 @@ func (this *Server) lookupInMap(domainName string) (string, int8) {
 
 	if domain != nil && domain.Block {
 		// If the domain is blocked, add it to the map so that the next lookup is faster
-		this.domains.Store(domainName, &Domain{
-			Name:  domainName,
-			Time:  math.MaxInt64,
-			Ip:    BlockedIp,
-			Block: true,
+		this.store(&Domain{
+			Name:     domainName,
+			Time:     math.MaxInt64,
+			Ip:       BlockedIp,
+			Block:    true,
+			Requests: 1,
 		})
 	}
 
@@ -48,6 +53,19 @@ func (this *Server) lookupInMap(domainName string) (string, int8) {
 	}
 	this.stats.CachedRequests++
 	return domain.Ip, result
+}
+
+func (this *Server) store(domain *Domain) {
+	oldDomainInterface, ok := this.domains.Load(domain.Name)
+	if ok {
+		// Domain was already in map, update
+		oldDomain := oldDomainInterface.(*Domain)
+		oldDomain.Requests++
+		this.domains.Store(domain.Name, oldDomain)
+	} else {
+		// Domain was not in map, add
+		this.domains.Store(domain.Name, domain)
+	}
 }
 
 func (this *Server) getIp(domainName string) (string, error) {
@@ -72,11 +90,13 @@ func (this *Server) getIp(domainName string) (string, error) {
 			answer := ips[0]
 			go func() {
 				// Add to cache
-				this.domains.Store(domainName, &Domain{
-					Ip:    answer.String(),
-					Name:  domainName,
-					Time:  time.Now().UnixNano(),
-					Block: false,
+
+				this.store(&Domain{
+					Ip:       answer.String(),
+					Name:     domainName,
+					Time:     time.Now().UnixNano(),
+					Block:    false,
+					Requests: 1,
 				})
 				this.stats.LookupRequests++
 				//this.printAllHosts()
@@ -172,7 +192,7 @@ func New(port int) (*dns.Server, *Server) {
 	}
 	convertMapToMutex(config.Hosts).
 		Range(func(key, value interface{}) bool {
-			client.domains.Store(key, &Domain{
+			client.store(&Domain{
 				Name:  key.(string),
 				Ip:    value.(string),
 				Time:  math.MaxInt64,
@@ -237,8 +257,9 @@ type Config struct {
 }
 
 type Domain struct {
-	Name  string `json:"name"`
-	Time  int64  `json:"time"`
-	Ip    string `json:"ip"`
-	Block bool   `json:"block"`
+	Name     string `json:"name"`
+	Time     int64  `json:"time"`
+	Ip       string `json:"ip"`
+	Block    bool   `json:"block"`
+	Requests int64  `json:"requests"`
 }
