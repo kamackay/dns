@@ -13,6 +13,7 @@ import (
 	"gitlab.com/kamackay/dns/util"
 	"math"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -90,7 +91,6 @@ func (this *Server) getIp(domainName string) (string, error) {
 			answer := ips[0]
 			go func() {
 				// Add to cache
-
 				this.store(&Domain{
 					Ip:       answer.String(),
 					Name:     domainName,
@@ -152,13 +152,17 @@ func (this *Server) startRest() {
 		engine.Use(cors.Default())
 		//engine.Use(logger.SetLogger())
 		engine.GET("/", func(c *gin.Context) {
+			this.stats.Domains = make([]*Domain, 0)
 			this.domains.Range(func(key, value interface{}) bool {
 				running := util.PrintTimeDiff(this.stats.Started)
 				this.stats.Running = &running
 				if key != nil && value != nil {
-					this.stats.Domains[key.(string)] = value.(*Domain)
+					this.stats.Domains = append(this.stats.Domains, value.(*Domain))
 				}
 				return true
+			})
+			sort.SliceStable(this.stats.Domains, func(i, j int) bool {
+				return this.stats.Domains[i].Requests > this.stats.Domains[j].Requests
 			})
 			c.JSON(200, this.stats)
 		})
@@ -186,7 +190,7 @@ func New(port int) (*dns.Server, *Server) {
 		stats: Stats{
 			LookupRequests: 0,
 			CachedRequests: 0,
-			Domains:        make(map[string]*Domain),
+			Domains:        make([]*Domain, 0),
 			Started:        time.Now().UnixNano(),
 		},
 	}
@@ -247,7 +251,7 @@ type Stats struct {
 	CachedRequests  int64              `json:"cachedRequests"`
 	BlockedRequests int64              `json:"blockedRequests"`
 	FailedRequests  int64              `json:"failedRequests"`
-	Domains         map[string]*Domain `json:"domains"`
+	Domains         []*Domain `json:"domains"`
 }
 
 type Config struct {
