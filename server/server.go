@@ -85,6 +85,7 @@ func (this *Server) getIp(domainName string) (string, error) {
 		if ips, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
 			err != nil || len(ips) == 0 {
 			this.stats.FailedRequests++
+			this.stats.FailedDomains = unique(append(this.stats.FailedDomains, domainName))
 			this.logger.Error(err)
 			return "", err
 		} else {
@@ -115,9 +116,11 @@ func (this *Server) checkBlock(domain string) bool {
 func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	start := time.Now().UnixNano()
 	defer func() {
-		if r := recover(); r != nil {
+		if recovered := recover(); recovered != nil {
 			fmt.Println("Recovering from:", r)
 			_ = w.Close()
+			this.stats.FailedRequests++
+			this.stats.FailedDomains = unique(append(this.stats.FailedDomains, r.Question[0].Name))
 		}
 	}()
 	msg := dns.Msg{}
@@ -192,6 +195,7 @@ func New(port int) (*dns.Server, *Server) {
 			CachedRequests: 0,
 			Domains:        make([]*Domain, 0),
 			Started:        time.Now().UnixNano(),
+			FailedDomains:  make([]string, 0),
 		},
 	}
 	convertMapToMutex(config.Hosts).
@@ -246,11 +250,12 @@ func (this *Server) PreStart() {
 
 type Stats struct {
 	Started         int64
-	Running         *string            `json:"running"`
-	LookupRequests  int64              `json:"lookupRequests"`
-	CachedRequests  int64              `json:"cachedRequests"`
-	BlockedRequests int64              `json:"blockedRequests"`
-	FailedRequests  int64              `json:"failedRequests"`
+	Running         *string   `json:"running"`
+	LookupRequests  int64     `json:"lookupRequests"`
+	CachedRequests  int64     `json:"cachedRequests"`
+	BlockedRequests int64     `json:"blockedRequests"`
+	FailedRequests  int64     `json:"failedRequests"`
+	FailedDomains   []string  `json:"failedDomains"`
 	Domains         []*Domain `json:"domains"`
 }
 

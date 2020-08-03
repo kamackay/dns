@@ -40,6 +40,18 @@ func convertMapToMutex(slice map[string]interface{}) *sync.Map {
 	return &mutexMap
 }
 
+func unique(slice []string) []string {
+	keys := make(map[string]bool)
+	list := make([]string, 0)
+	for _, entry := range slice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
+}
+
 func convertMutexToMap(mutex *sync.Map) map[string]*Domain {
 	slice := make(map[string]*Domain)
 	mutex.Range(func(key, value interface{}) bool {
