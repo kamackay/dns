@@ -219,8 +219,8 @@ type Stats struct {
 	CachedRequests  int64     `json:"cachedRequests"`
 	BlockedRequests int64     `json:"blockedRequests"`
 	FailedRequests  int64     `json:"failedRequests"`
-	FailedDomains   []string  `json:"failedDomains"`
 	Domains         []*Domain `json:"domains"`
+	FailedDomains   []string  `json:"failedDomains"`
 }
 
 type Config struct {
