@@ -16,7 +16,11 @@ func PrintTimeDiff(start int64) string {
 	secDiff := msDiff / 1000
 	minDiff := secDiff / 60
 	hourDiff := minDiff / 60
+	dayDiff := hourDiff / 24
 
+	if dayDiff > 0 {
+		builder = append(builder, fmt.Sprintf("%sd", humanize.Comma(dayDiff)))
+	}
 	if hourDiff > 0 {
 		builder = append(builder, fmt.Sprintf("%sh", humanize.Comma(hourDiff)))
 	}
