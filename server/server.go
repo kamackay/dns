@@ -24,6 +24,7 @@ func (this *Server) lookupInMap(domainName string) (string, int8) {
 		})
 	var domain *Domain
 	var result int8
+	this.logger.Debugf("Using: %+v, %t", domain, ok)
 	if ok {
 		domain = domainInterface.(*Domain)
 		result = getResultFromDomain(domain)

@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -67,7 +68,7 @@ func (this *Server) pullBlockList() {
 	if err == nil {
 		this.logger.Infof("Pulled %d Servers to Block", len(list))
 		for _, server := range list {
-			name := fmt.Sprintf("*%s.", server)
+			name := fmt.Sprintf("^(.*\\.)?%s\\.$", server)
 			this.domains.Store(name, &Domain{
 				Name:  name,
 				Time:  math.MaxInt64,
@@ -127,8 +128,18 @@ func lookupInMapAndUpdate(items map[string]*Domain, lookup string, updater func(
 		return exact, true
 	}
 	for key, val := range items {
-		if wildcard.Match(key, lookup) {
+		pattern := key
+		if !strings.HasPrefix(pattern, "^") {
+			// Format to be a regex for usage
+			pattern = fmt.Sprintf("^%s$", pattern)
+		}
+		regex, err := regexp.Compile(pattern)
+		if err != nil {
+			continue
+		}
+		if regex.MatchString(lookup) {
 			updater(val)
+			fmt.Printf("Found Match for %s: %s\n", lookup, key)
 			return val, true
 		}
 	}
