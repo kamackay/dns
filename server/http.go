@@ -12,14 +12,14 @@ import (
 	"strings"
 )
 
-func (this *Server) startRest() {
+func (this *Server) startRest(flush func() error) {
 	go func() {
 		// Instantiate a new router
 		gin.SetMode(gin.ReleaseMode)
 		engine := gin.Default()
 		engine.Use(gzip.Gzip(gzip.BestCompression))
 		engine.Use(cors.Default())
-		//engine.Use(logger.SetLogger())
+
 		engine.GET("/", func(c *gin.Context) {
 			this.stats.Domains = make([]*Domain, 0)
 			this.domains.Range(func(key, value interface{}) bool {
@@ -42,6 +42,15 @@ func (this *Server) startRest() {
 			c.HTML(http.StatusOK, "json.tmpl", &gin.H{
 				"json": strings.TrimSpace(string(jsonData)),
 			})
+		})
+
+		engine.POST("/flush", func(ctx *gin.Context) {
+			err := flush()
+			if err != nil {
+				ctx.String(http.StatusInternalServerError, "Error Clearing DNS Cache\n")
+			} else {
+				ctx.String(http.StatusOK, "Flushed!\n")
+			}
 		})
 
 		if err := engine.Run(":9999"); err != nil {

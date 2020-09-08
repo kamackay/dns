@@ -205,8 +205,21 @@ func New(port int) (*dns.Server, *Server) {
 	return srv, client
 }
 
+func (this *Server) flushDns() error {
+	this.domains.Range(func(key, value interface{}) bool {
+		domain := value.(*Domain)
+		host := key.(string)
+		if !domain.Block {
+			// Remove all servers except for the blocked ones
+			this.domains.Delete(host)
+		}
+		return true
+	})
+	return nil
+}
+
 func (this *Server) PreStart() {
-	this.startRest()
+	this.startRest(this.flushDns)
 	go func() {
 		time.Sleep(time.Second)
 		this.pullBlockList()
