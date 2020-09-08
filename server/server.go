@@ -181,28 +181,35 @@ func New(port int) (*dns.Server, *Server) {
 				select {
 				// watch for events
 				case _ = <-watcher.Events:
-					fmt.Println("Reloading Config File")
-					newConfig, err := readConfig()
-					if err != nil {
-						fmt.Println("Error Reading the Config", err.Error())
-					}
-					client.config = newConfig
-					client.resolver = dns_resolver.New(newConfig.DnsServers)
-					convertMapToMutex(newConfig.Hosts).
-						Range(func(key, value interface{}) bool {
-							client.domains.Store(key, &Domain{
-								Name:  key.(string),
-								Ip:    value.(string),
-								Time:  math.MaxInt64,
-								Block: false,
-							})
-							return true
-						})
+					client.logger.Info("Reloading Config File")
+					client.loadConfig()
 				}
 			}
 		}()
 	}
 	return srv, client
+}
+
+func (this *Server) loadConfig() {
+	newConfig, err := readConfig()
+	if err != nil {
+		fmt.Println("Error Reading the Config", err.Error())
+		return
+	} else {
+		this.logger.Info("Reloading Config File")
+	}
+	this.config = newConfig
+	this.resolver = dns_resolver.New(newConfig.DnsServers)
+	convertMapToMutex(newConfig.Hosts).
+		Range(func(key, value interface{}) bool {
+			this.domains.Store(key, &Domain{
+				Name:  key.(string),
+				Ip:    value.(string),
+				Time:  math.MaxInt64,
+				Block: false,
+			})
+			return true
+		})
 }
 
 func (this *Server) flushDns() error {
@@ -221,6 +228,7 @@ func (this *Server) flushDns() error {
 func (this *Server) PreStart() {
 	this.startRest(this.flushDns)
 	go func() {
+		this.loadConfig()
 		time.Sleep(time.Second)
 		this.pullBlockList()
 	}()
