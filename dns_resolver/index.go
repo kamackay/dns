@@ -19,6 +19,11 @@ type DnsResolver struct {
 	r          *rand.Rand
 }
 
+type DnsResult struct {
+	Ips    []net.IP
+	Server string
+}
+
 // New initializes DnsResolver.
 func New(servers []string) *DnsResolver {
 	for i := range servers {
@@ -34,7 +39,7 @@ func NewFromResolvConf(path string) (*DnsResolver, error) {
 		return &DnsResolver{}, errors.New("no such file or directory: " + path)
 	}
 	config, err := dns.ClientConfigFromFile(path)
-	servers := []string{}
+	servers := make([]string, 0)
 	for _, ipAddress := range config.Servers {
 		servers = append(servers, net.JoinHostPort(ipAddress, "53"))
 	}
@@ -43,19 +48,27 @@ func NewFromResolvConf(path string) (*DnsResolver, error) {
 
 // LookupHost returns IP addresses of provied host.
 // In case of timeout retries query RetryTimes times.
-func (r *DnsResolver) LookupHost(host string) ([]net.IP, error) {
+func (r *DnsResolver) LookupHost(host string) (*DnsResult, error) {
 	return r.lookupHost(host, r.RetryTimes)
 }
 
-func (r *DnsResolver) lookupHost(host string, triesLeft int) ([]net.IP, error) {
+func (r *DnsResolver) lookupHost(host string, triesLeft int) (*DnsResult, error) {
 	m1 := new(dns.Msg)
 	m1.Id = dns.Id()
 	m1.RecursionDesired = true
 	m1.Question = make([]dns.Question, 1)
-	m1.Question[0] = dns.Question{dns.Fqdn(host), dns.TypeA, dns.ClassINET}
-	in, err := dns.Exchange(m1, r.Servers[r.r.Intn(len(r.Servers))])
+	m1.Question[0] = dns.Question{
+		Name:   dns.Fqdn(host),
+		Qtype:  dns.TypeA,
+		Qclass: dns.ClassINET,
+	}
+	server := r.Servers[r.r.Intn(len(r.Servers))]
+	in, err := dns.Exchange(m1, server)
 
-	result := []net.IP{}
+	result := &DnsResult{
+		Ips:    make([]net.IP, 0),
+		Server: server,
+	}
 
 	if err != nil {
 		if strings.HasSuffix(err.Error(), "i/o timeout") && triesLeft > 0 {
@@ -71,7 +84,7 @@ func (r *DnsResolver) lookupHost(host string, triesLeft int) ([]net.IP, error) {
 
 	for _, record := range in.Answer {
 		if t, ok := record.(*dns.A); ok {
-			result = append(result, t.A)
+			result.Ips = append(result.Ips, t.A)
 		}
 	}
 	return result, err

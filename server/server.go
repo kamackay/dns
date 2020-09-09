@@ -78,15 +78,16 @@ func (this *Server) getIp(domainName string) (string, error) {
 		this.stats.BlockedRequests++
 		return BlockedIp, errors.New("blocked " + domainName)
 	} else {
-		this.logger.Infof("Fetching %s", domainName)
-		if ips, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
-			err != nil || len(ips) == 0 {
+		if result, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
+			err != nil || len(result.Ips) == 0 {
 			this.stats.FailedRequests++
 			this.stats.FailedDomains = unique(append(this.stats.FailedDomains, domainName))
 			this.logger.Error(err)
 			return "", err
 		} else {
-			answer := ips[0]
+			answer := result.Ips[0]
+			this.logger.Infof("Fetched \"%s\" = %s from %s",
+				domainName, answer.String(), result.Server)
 			go func() {
 				// Add to cache
 				this.store(&Domain{
