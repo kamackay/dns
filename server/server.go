@@ -24,11 +24,11 @@ func (this *Server) lookupInMap(domainName string) (*Domain, int8) {
 		})
 	var domain *Domain
 	var result int8
-	this.logger.Debugf("Using: %+v, %t", domain, ok)
+	this.log.Debugf("Using: %+v, %t", domain, ok)
 	if ok {
 		domain = domainInterface.(*Domain)
 		result = getResultFromDomain(domain)
-		if time.Now().UnixNano()-domain.Time <= Timeout {
+		if time.Now().UnixNano()/NanoConv-domain.Time/NanoConv <= int64(domain.Ttl)*1000 {
 			return domain, result
 		}
 	} else {
@@ -39,10 +39,11 @@ func (this *Server) lookupInMap(domainName string) (*Domain, int8) {
 		// If the domain is blocked, add it to the map so that the next lookup is faster
 		this.store(&Domain{
 			Name:     domainName,
-			Time:     math.MaxInt64,
+			Time:     time.Now().UnixNano(),
 			Ip:       BlockedIp,
 			Block:    true,
 			Requests: 1,
+			Ttl:      math.MaxUint32,
 		})
 	}
 
@@ -74,7 +75,7 @@ func (this *Server) getIp(domainName string) (*Domain, error) {
 	if result == Ok {
 		return address, nil
 	} else if result == Block {
-		this.logger.Warnf("Blocking %s", domainName)
+		this.log.Warnf("Blocking %s", domainName)
 		this.stats.BlockedRequests++
 		this.addMetric(Metric{
 			MetricType: "Block",
@@ -82,7 +83,7 @@ func (this *Server) getIp(domainName string) (*Domain, error) {
 			Ip:         BlockedIp,
 			Server:     NoServer,
 			Blocked:    false,
-			Domain:     "",
+			Domain:     domainName,
 		})
 		return getBlockedDomainObj(domainName), errors.New("blocked " + domainName)
 	} else {
@@ -90,11 +91,11 @@ func (this *Server) getIp(domainName string) (*Domain, error) {
 			err != nil || len(result.Ips) == 0 {
 			this.stats.FailedRequests++
 			this.stats.FailedDomains = unique(append(this.stats.FailedDomains, domainName))
-			this.logger.Error(err)
+			this.log.Error(err)
 			return getFailedDomainObj(domainName), err
 		} else {
 			answer := result.Ips[0]
-			this.logger.Infof("Fetched \"%s\" = %s from %s",
+			this.log.Infof("Fetched \"%s\" = %s from %s",
 				domainName, answer.Address, result.Server)
 			domain := &Domain{
 				Ip:       answer.Address,
@@ -149,7 +150,7 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			domain := question.Name
 			result, err := this.getIp(domain)
 			defer func() {
-				this.logger.Infof("Lookup %s in %s -> %s",
+				this.log.Infof("Lookup %s in %s -> %s",
 					domain, util.PrintTimeDiff(start), result.Ip)
 				this.addMetric(Metric{
 					MetricType: "Answer",
@@ -182,7 +183,7 @@ func New(port int) (*dns.Server, *Server) {
 		resolver:   dns_resolver.New(config.DnsServers, config.DohServer),
 		config:     config,
 		printMutex: &sync.Mutex{},
-		logger:     logging.GetLogger(),
+		log:        logging.GetLogger(),
 		stats: Stats{
 			LookupRequests: 0,
 			CachedRequests: 0,
@@ -197,7 +198,7 @@ func New(port int) (*dns.Server, *Server) {
 			client.store(&Domain{
 				Name:  key.(string),
 				Ip:    value.(string),
-				Time:  math.MaxInt64,
+				Time:  time.Now().UnixNano(),
 				Block: false,
 			})
 			return true
@@ -210,7 +211,7 @@ func New(port int) (*dns.Server, *Server) {
 				select {
 				// watch for events
 				case _ = <-watcher.Events:
-					client.logger.Info("Reloading Config File")
+					client.log.Info("Reloading Config File")
 					client.loadConfig()
 				}
 			}
@@ -225,7 +226,7 @@ func (this *Server) loadConfig() {
 		fmt.Println("Error Reading the Config", err.Error())
 		return
 	} else {
-		this.logger.Info("Reloading Config File")
+		this.log.Info("Reloading Config File")
 	}
 	this.config = newConfig
 	this.resolver = dns_resolver.New(newConfig.DnsServers, newConfig.DohServer)
@@ -236,6 +237,7 @@ func (this *Server) loadConfig() {
 				Ip:    value.(string),
 				Time:  math.MaxInt64,
 				Block: false,
+				Ttl:   math.MaxUint32,
 			})
 			return true
 		})

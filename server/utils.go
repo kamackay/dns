@@ -61,14 +61,17 @@ func (this *Server) pullBlockList() {
 	var list []string
 	err := getJson("https://api.keith.sh/ls.json", &list)
 	if err == nil {
-		this.logger.Infof("Pulled %d Servers to Block", len(list))
+		this.log.Infof("Pulled %d Servers to Block", len(list))
 		for _, server := range list {
 			name := fmt.Sprintf("^(.*\\.)?%s\\.$", server)
 			this.domains.Store(name, &Domain{
-				Name:  name,
-				Time:  math.MaxInt64,
-				Ip:    BlockedIp,
-				Block: true,
+				Name:     name,
+				Time:     time.Now().UnixNano(),
+				Ip:       BlockedIp,
+				Block:    true,
+				Server:   NoServer,
+				Requests: 0,
+				Ttl:      math.MaxUint32,
 			})
 		}
 	}
@@ -134,7 +137,7 @@ func lookupInMapAndUpdate(items map[string]*Domain, lookup string, updater func(
 		}
 		if regex.MatchString(lookup) {
 			updater(val)
-			fmt.Printf("Found Match for %s: %s\n", lookup, key)
+			//fmt.Printf("Found Match for %s: %s\n", lookup, key)
 			return val, true
 		}
 	}

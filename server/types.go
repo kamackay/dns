@@ -10,7 +10,7 @@ type Server struct {
 	resolver   *dns_resolver.DnsResolver
 	domains    sync.Map
 	config     *Config
-	logger     *logrus.Logger
+	log        *logrus.Logger
 	printMutex *sync.Mutex
 	stats      Stats
 }
