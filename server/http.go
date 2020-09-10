@@ -18,7 +18,8 @@ func (this *Server) startRest(flush func() error) {
 	go func() {
 		// Instantiate a new router
 		gin.SetMode(gin.ReleaseMode)
-		engine := gin.Default()
+		engine := gin.New()
+		engine.Use(gin.Recovery())
 		engine.Use(gzip.Gzip(gzip.BestCompression))
 		engine.Use(cors.Default())
 
