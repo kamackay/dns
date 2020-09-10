@@ -3,6 +3,7 @@ module gitlab.com/kamackay/dns
 go 1.14
 
 require (
+	github.com/avct/uasurfer v0.0.0-20191028135549-26b5daa857f1 // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-contrib/cors v1.3.1
@@ -15,5 +16,4 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/rs/zerolog v1.19.0
 	github.com/sirupsen/logrus v1.6.0
-	gitlab.com/kamackay/copier v1.0.0
 )

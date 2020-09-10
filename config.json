@@ -9,6 +9,7 @@
     "*.google-analytics.com.": true,
     "marketingplatform.google.com.": true,
     "collector.githubapp.com.": true,
+    "usea1.r3.securitycloud.symantec.com.": true,
     "wpad.": true
   },
   "servers": [
@@ -19,5 +20,7 @@
     "1.0.0.1",
     "8.8.8.8",
     "9.9.9.9"
-  ]
+  ],
+  "dohServer": "1.1.1.1"
+
 }

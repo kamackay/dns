@@ -2,9 +2,11 @@ package server
 
 import (
 	"fmt"
+	"github.com/avct/uasurfer"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 	jsoniter "github.com/json-iterator/go"
 	"gitlab.com/kamackay/dns/util"
 	"net/http"
@@ -20,28 +22,51 @@ func (this *Server) startRest(flush func() error) {
 		engine.Use(gzip.Gzip(gzip.BestCompression))
 		engine.Use(cors.Default())
 
-		engine.GET("/", func(c *gin.Context) {
-			this.stats.Domains = make([]*Domain, 0)
+		engine.GET("/", func(ctx *gin.Context) {
+			send := func(json interface{}) {
+				ua := uasurfer.Parse(ctx.Request.UserAgent())
+				if ua.IsBot() {
+					ctx.String(http.StatusNotFound, "Not Found")
+					return
+				}
+				isBrowser := ua.Browser.Name == uasurfer.BrowserChrome ||
+					ua.Browser.Name == uasurfer.BrowserFirefox ||
+					ua.Browser.Name == uasurfer.BrowserAndroid ||
+					ua.Browser.Name == uasurfer.BrowserSafari
+				jsonData, err := jsoniter.MarshalIndent(json, "", "  ")
+				if err != nil || !isBrowser {
+					ctx.JSON(http.StatusOK, json)
+					return
+				}
+				ctx.HTML(http.StatusOK, "json.tmpl", &gin.H{
+					"json": strings.TrimSpace(string(jsonData)),
+				})
+			}
+			var stats Stats
+			err := copier.Copy(&stats, &this.stats)
+			if err != nil {
+				// shrug
+				fmt.Printf("%+v", err)
+				send(gin.H{})
+				return
+			}
+			if ctx.Query("metrics") != "true" {
+				stats.Metrics = make([]Metric, 0)
+			}
+			stats.Domains = make([]*Domain, 0)
 			this.domains.Range(func(key, value interface{}) bool {
-				running := util.PrintTimeDiff(this.stats.Started)
-				this.stats.Running = &running
+				running := util.PrintTimeDiff(stats.Started)
+				stats.Running = &running
 				if key != nil && value != nil {
-					this.stats.Domains = append(this.stats.Domains, value.(*Domain))
+					stats.Domains = append(stats.Domains, value.(*Domain))
 				}
 				return true
 			})
-			sort.SliceStable(this.stats.Domains, func(i, j int) bool {
-				return this.stats.Domains[i].Requests > this.stats.Domains[j].Requests
+			sort.SliceStable(stats.Domains, func(i, j int) bool {
+				return stats.Domains[i].Requests > stats.Domains[j].Requests
 			})
-			jsonData, err := jsoniter.MarshalIndent(this.stats, "", "  ")
-			if err != nil {
-				c.JSON(http.StatusOK, this.stats)
-				return
-			}
 			engine.LoadHTMLGlob("templates/*")
-			c.HTML(http.StatusOK, "json.tmpl", &gin.H{
-				"json": strings.TrimSpace(string(jsonData)),
-			})
+			send(stats)
 		})
 
 		engine.POST("/flush", func(ctx *gin.Context) {

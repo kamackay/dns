@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func (this *Server) lookupInMap(domainName string) (string, int8) {
+func (this *Server) lookupInMap(domainName string) (*Domain, int8) {
 	domainInterface, ok := lookupInMapAndUpdate(convertMutexToMap(&this.domains),
 		domainName,
 		func(domain *Domain) {
@@ -29,7 +29,7 @@ func (this *Server) lookupInMap(domainName string) (string, int8) {
 		domain = domainInterface.(*Domain)
 		result = getResultFromDomain(domain)
 		if time.Now().UnixNano()-domain.Time <= Timeout {
-			return domain.Ip, result
+			return domain, result
 		}
 	} else {
 		result = NotFound
@@ -47,10 +47,10 @@ func (this *Server) lookupInMap(domainName string) (string, int8) {
 	}
 
 	if domain == nil {
-		return "", result
+		return getFailedDomainObj(domainName), result
 	}
 	this.stats.CachedRequests++
-	return domain.Ip, result
+	return domain, result
 }
 
 func (this *Server) store(domain *Domain) {
@@ -66,9 +66,9 @@ func (this *Server) store(domain *Domain) {
 	}
 }
 
-func (this *Server) getIp(domainName string) (string, error) {
+func (this *Server) getIp(domainName string) (*Domain, error) {
 	if this.checkBlock(domainName) {
-		return BlockedIp, errors.New("blocked " + domainName)
+		return getBlockedDomainObj(domainName), errors.New("blocked " + domainName)
 	}
 	address, result := this.lookupInMap(domainName)
 	if result == Ok {
@@ -76,31 +76,50 @@ func (this *Server) getIp(domainName string) (string, error) {
 	} else if result == Block {
 		this.logger.Warnf("Blocking %s", domainName)
 		this.stats.BlockedRequests++
-		return BlockedIp, errors.New("blocked " + domainName)
+		this.addMetric(Metric{
+			MetricType: "Block",
+			Time:       time.Now().UnixNano() / NanoConv,
+			Ip:         BlockedIp,
+			Server:     NoServer,
+			Blocked:    false,
+			Domain:     "",
+		})
+		return getBlockedDomainObj(domainName), errors.New("blocked " + domainName)
 	} else {
 		if result, err := this.resolver.LookupHost(strings.TrimRight(domainName, "."));
 			err != nil || len(result.Ips) == 0 {
 			this.stats.FailedRequests++
 			this.stats.FailedDomains = unique(append(this.stats.FailedDomains, domainName))
 			this.logger.Error(err)
-			return "", err
+			return getFailedDomainObj(domainName), err
 		} else {
 			answer := result.Ips[0]
 			this.logger.Infof("Fetched \"%s\" = %s from %s",
-				domainName, answer.String(), result.Server)
+				domainName, answer.Address, result.Server)
+			domain := &Domain{
+				Ip:       answer.Address,
+				Ttl:      answer.Ttl,
+				Name:     domainName,
+				Time:     time.Now().UnixNano(),
+				Block:    false,
+				Requests: 1,
+				Server:   result.Server,
+			}
 			go func() {
 				// Add to cache
-				this.store(&Domain{
-					Ip:       answer.String(),
-					Name:     domainName,
-					Time:     time.Now().UnixNano(),
-					Block:    false,
-					Requests: 1,
-				})
+				this.store(domain)
 				this.stats.LookupRequests++
+				this.addMetric(Metric{
+					MetricType: "Fetch",
+					Time:       0,
+					Ip:         answer.Address,
+					Server:     result.Server,
+					Blocked:    false,
+					Domain:     domainName,
+				})
 				//this.printAllHosts()
 			}()
-			return answer.String(), nil
+			return domain, nil
 		}
 	}
 }
@@ -128,15 +147,23 @@ func (this *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		msg.Authoritative = true
 		for _, question := range msg.Question {
 			domain := question.Name
-			address, err := this.getIp(domain)
+			result, err := this.getIp(domain)
 			defer func() {
 				this.logger.Infof("Lookup %s in %s -> %s",
-					domain, util.PrintTimeDiff(start), address)
+					domain, util.PrintTimeDiff(start), result.Ip)
+				this.addMetric(Metric{
+					MetricType: "Answer",
+					Time:       (time.Now().UnixNano() - start) / NanoConv,
+					Ip:         result.Ip,
+					Server:     result.Server,
+					Blocked:    false,
+					Domain:     result.Name,
+				})
 			}()
 			if err == nil {
 				msg.Answer = append(msg.Answer, &dns.A{
 					Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60},
-					A:   net.ParseIP(address),
+					A:   net.ParseIP(result.Ip),
 				})
 			}
 		}
@@ -152,7 +179,7 @@ func New(port int) (*dns.Server, *Server) {
 		return nil, nil
 	}
 	client := &Server{
-		resolver:   dns_resolver.New(config.DnsServers),
+		resolver:   dns_resolver.New(config.DnsServers, config.DohServer),
 		config:     config,
 		printMutex: &sync.Mutex{},
 		logger:     logging.GetLogger(),
@@ -162,6 +189,7 @@ func New(port int) (*dns.Server, *Server) {
 			Domains:        make([]*Domain, 0),
 			Started:        time.Now().UnixNano(),
 			FailedDomains:  make([]string, 0),
+			Metrics:        make([]Metric, 0),
 		},
 	}
 	convertMapToMutex(config.Hosts).
@@ -200,7 +228,7 @@ func (this *Server) loadConfig() {
 		this.logger.Info("Reloading Config File")
 	}
 	this.config = newConfig
-	this.resolver = dns_resolver.New(newConfig.DnsServers)
+	this.resolver = dns_resolver.New(newConfig.DnsServers, newConfig.DohServer)
 	convertMapToMutex(newConfig.Hosts).
 		Range(func(key, value interface{}) bool {
 			this.domains.Store(key, &Domain{
@@ -233,29 +261,4 @@ func (this *Server) PreStart() {
 		time.Sleep(time.Second)
 		this.pullBlockList()
 	}()
-}
-
-type Stats struct {
-	Started         int64
-	Running         *string   `json:"running"`
-	LookupRequests  int64     `json:"lookupRequests"`
-	CachedRequests  int64     `json:"cachedRequests"`
-	BlockedRequests int64     `json:"blockedRequests"`
-	FailedRequests  int64     `json:"failedRequests"`
-	Domains         []*Domain `json:"domains"`
-	FailedDomains   []string  `json:"failedDomains"`
-}
-
-type Config struct {
-	Hosts      map[string]interface{} `json:"hosts"`
-	Blocks     map[string]bool        `json:"blocks"`
-	DnsServers []string               `json:"servers"`
-}
-
-type Domain struct {
-	Name     string `json:"name"`
-	Time     int64  `json:"time"`
-	Ip       string `json:"ip"`
-	Block    bool   `json:"block"`
-	Requests int64  `json:"requests"`
 }

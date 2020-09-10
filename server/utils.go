@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/sirupsen/logrus"
-	"gitlab.com/kamackay/dns/dns_resolver"
 	"gitlab.com/kamackay/dns/wildcard"
 	"io/ioutil"
 	"math"
@@ -18,19 +16,16 @@ import (
 
 const (
 	Timeout        = 360000
+	NanoConv       = 1_000_000
 	BlockedIp      = "Blocked!"
+	NoServer       = "127.0.0.1"
 	Ok        int8 = 0
 	Block     int8 = 1
 	NotFound  int8 = 2
 )
 
-type Server struct {
-	resolver   *dns_resolver.DnsResolver
-	domains    sync.Map
-	config     *Config
-	logger     *logrus.Logger
-	printMutex *sync.Mutex
-	stats      Stats
+func (this *Server) addMetric(metric Metric) {
+	this.stats.Metrics = append(this.stats.Metrics, metric)
 }
 
 func convertMapToMutex(slice map[string]interface{}) *sync.Map {
@@ -156,4 +151,26 @@ func lookupBoolInMap(items map[string]bool, lookup string) (*bool, bool) {
 		}
 	}
 	return nil, false
+}
+
+func getBlockedDomainObj(domainName string) *Domain {
+	return &Domain{
+		Ip:       BlockedIp,
+		Name:     domainName,
+		Time:     time.Now().UnixNano(),
+		Block:    true,
+		Requests: 1,
+		Server:   NoServer,
+	}
+}
+
+func getFailedDomainObj(domainName string) *Domain {
+	return &Domain{
+		Ip:       "",
+		Name:     domainName,
+		Time:     time.Now().UnixNano(),
+		Block:    false,
+		Requests: 1,
+		Server:   NoServer,
+	}
 }
