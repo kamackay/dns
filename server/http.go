@@ -69,6 +69,10 @@ func (this *Server) startRest(flush func() error) {
 			send(stats)
 		})
 
+		engine.GET("/metrics", func(ctx *gin.Context) {
+			ctx.JSON(http.StatusOK, this.stats.Metrics)
+		})
+
 		engine.POST("/flush", func(ctx *gin.Context) {
 			err := flush()
 			if err != nil {
