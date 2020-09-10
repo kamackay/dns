@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -116,11 +117,18 @@ func (r *DnsResolver) lookupHostDoh(host string) *DnsResult {
 	}
 	ips := make([]Ip, 0)
 	for _, answer := range response.Answer {
+		if regexp.MustCompile(".*[A-Za-z_\\\\/()@].*").MatchString(answer.Data) {
+			// Non-IP response, more than likely a CNAME
+			continue
+		}
 		ips = append(ips, Ip{
 			Address: answer.Data,
 			Ttl:     answer.TTL,
 			Name:    answer.Name,
 		})
+	}
+	if len(ips) == 0 {
+		return nil
 	}
 	return &DnsResult{
 		Ips:    ips,
